@@ -1,0 +1,117 @@
+#separator:Pipe
+#html:false
+#notetype:Basic
+#deck:ML::Modelling Pipeline
+#tags column:3
+#columns:Front|Back|Tags
+What is the modelling population?|The specific set of rows you model on, as opposed to the raw file. It defines what the model's output means. Example: filtering to one product and one date range turns "risk of any loan" into "risk of this product in this era".|population
+Why must population filtering come before profiling?|Null rates and distributions are properties of the population, not the file. Example: a column that is 50 percent null overall may be 0 percent null among the rows you actually keep.|population
+What is a label definition?|The rule mapping raw outcomes to the target variable, including the time horizon. Example: "failed within 24 months" is a different label from "failed at any point", and they are not interchangeable.|label
+Why does the choice of positive class matter?|Precision, recall and the rest are defined relative to the positive class. Example: code the rare bad outcome as 0 and recall now measures your ability to find good cases, so every metric reads backwards.|label
+What is the one-line test for step ordering?|Ask whether the step touches the label. If yes, it belongs after the train-test split. Example: null-rate profiling is safe anywhere, but default-rate-by-bucket is not.|ordering
+What is censoring?|An observation whose outcome is not yet observable because the observation window ended first. Example: a 5-year contract that is 2 years old has no final status yet.|censoring
+How does censoring differ from missing data?|Missing means the value exists but was not recorded. Censored means the event has not happened yet. Example: an unrecorded income is missing, an unfinished contract is censored.|censoring
+How does censoring differ from truncation?|Censoring means partial information about an included subject. Truncation means the subject never entered the sample at all. Example: a still-running loan is censored, a rejected applicant is truncated.|censoring
+What is right-censoring?|The outcome lies beyond the end of the observation period. Example: a customer still subscribed on the extract date has an unknown eventual churn date.|censoring
+Why can censored cases not be coded as negative?|It relabels "not yet" as "never", biasing the model optimistic. Example: coding all in-flight contracts as non-failures understates risk, because some will fail next year.|censoring
+What is survival analysis?|Modelling time-to-event rather than whether an event occurred, so censored cases contribute instead of being dropped. Example: Kaplan-Meier curves and Cox proportional hazards models.|censoring
+What is a hazard rate?|The instantaneous risk of the event at time t, conditional on surviving until t. Example: failure hazard often peaks early then declines, so risk is not spread evenly over the term.|censoring
+What is a fixed performance window?|Measuring the outcome within a set number of months from the start, rather than over the full contract. Example: "failed within 24 months" applied to every case regardless of contract length.|censoring
+Why must a performance window be shorter than the shortest contract?|So no case has finished by the checkpoint, which makes all groups comparable. Example: a 24-month window works when the shortest product runs 36 months.|censoring
+Why are cumulative rates not comparable across different horizons?|More exposure time means more opportunity to fail, independent of risk. Example: a 5-year cumulative rate exceeds a 3-year one even when the annual risk is identical.|censoring
+Does truncating the outcome window preserve the ratio between two groups?|No, because truncation removes different proportions from each. Example: a group whose failures arrive later loses more of them when you cut the window short.|censoring
+What is data leakage?|Training on information that would not exist at prediction time, which inflates offline metrics. Example: a model scoring 0.99 AUC in testing that cannot score a single real applicant.|leakage
+What is the time-machine test?|For each column, ask whether the value was knowable at the moment of the decision. It is a question about timing, not subject matter. Example: contract amount is legal, final payment total is not, though both describe the contract.|leakage
+Why prefer a feature whitelist over a blacklist?|A whitelist fails closed, a blacklist fails open. Example: with 150 columns a blacklist will miss one, and the one it misses is the one that breaks the model.|leakage
+What is target leakage?|A feature that is a consequence of the outcome rather than a cause of it. Example: a credit score pulled after default, which the default itself caused to collapse.|leakage
+What is train-test contamination?|Fitting any transformation on data that includes the test set. Example: computing a scaler's mean over all rows before splitting.|leakage
+Does leakage require test rows to reach fit()?|No. Example: choosing which features to keep by inspecting the whole dataset leaks through model design, even though fit() only ever saw training rows.|leakage
+Which column names tend to signal leakage?|Prefixes implying recency or accumulation. Example: last_, total_, final_, or anything described as "to date".|leakage
+Why screen for leakage before ranking correlations?|Leaked features sit at the top of the ranking and look like a discovery rather than a bug. Example: a recovery-amount column correlating almost perfectly with failure.|leakage
+What is the one rule of feature engineering?|A derived feature inherits the leakage status of its worst input. Example: a clean amount divided by a post-outcome total is elegant and completely unusable.|features
+What is target encoding, and how does it leak?|Replacing a category with its mean target value, which leaks the row's own outcome into its own feature. Example: fix it with out-of-fold encoding so each row is encoded without itself.|features
+What makes a good engineered feature?|Arithmetic that exposes a relationship the model cannot easily learn alone, built only from decision-time inputs. Example: a ratio of obligation to income, or a duration between two known dates.|features
+What is data profiling?|Read-only description of each column: null rate, cardinality, distribution, and how those shift over time. Example: discovering a column holds the same constant in every row.|profiling
+Does profiling change the data?|No. It produces a document, not a dataframe. Example: profiling reveals a 50 percent null rate, and imputation later decides what to do about it.|profiling
+Profiling versus EDA?|Profiling asks what is in here and is descriptive. EDA asks what is interesting and is exploratory. Example: "this column is 97 percent empty" is profiling, "this column separates the classes" is EDA.|profiling
+What is MCAR?|Missing completely at random: missingness is unrelated to anything observed or unobserved. Example: a sensor that dropped readings at random intervals.|imputation
+What is MAR?|Missing at random: missingness is explained by other observed variables. Example: income missing more often for younger applicants, where age is recorded.|imputation
+What is MNAR?|Missing not at random: missingness depends on the unobserved value itself. Example: very high earners declining to state their income.|imputation
+Why does the missingness mechanism matter?|It decides whether imputation is safe or actively introduces bias. Example: mean-imputing MNAR income systematically erases the top of the distribution.|imputation
+What is structural missingness?|A blank meaning the event never happened, rather than the value being unknown. Example: months-since-last-delinquency for someone who has never been delinquent.|imputation
+What is a sentinel value?|An explicit code standing for "not applicable", used instead of a statistical fill. Example: -1 plus an indicator flag, rather than the median.|imputation
+What is an indicator flag in imputation?|A companion binary column recording that the value was absent, so the model can learn from the absence itself. Example: was_missing_income alongside the filled income.|imputation
+When is a missingness flag dangerous?|When missingness encodes time rather than behaviour. Example: a field introduced midway through history makes the flag a proxy for "older record", which will not generalise forward.|imputation
+Where do outliers live?|In the inputs, never in the target. Example: a low-risk case that failed anyway is the phenomenon you are modelling, not an error to remove.|quality
+What is the real test for an outlier?|Impossible, not rare. Example: an age of 300 is an error, an income of 2 million is merely unusual and probably real.|quality
+What is filtering on the target?|Dropping rows because their outcome surprises you. Example: removing low-risk failures teaches the model that segment never fails, which destroys calibration.|quality
+What is winsorising?|Capping extreme values at a percentile instead of deleting the row. Example: clip everything above the 99.9th percentile, keeping each row's label intact.|quality
+Why prefer capping to deleting?|Deleting discards a valid outcome in order to fix a single bad field. Example: one implausible income costs you an entire usable observation.|quality
+What are sentinel codes masquerading as values?|Legacy systems encoding "unknown" as an extreme number. Example: 999 or -1 sitting in a ratio field, which will wreck any mean computed over it.|quality
+What are the distinct roles of train, validation and test?|Train fits parameters, validation tunes choices, test estimates final performance exactly once. Example: picking a threshold on test destroys test as an unbiased estimate.|split
+Why split before preprocessing?|Any statistic learned from the full dataset carries test information into the model. Example: a median, a scaler, an outlier cap, a category encoder, or a feature ranking.|split
+What is a temporal split?|Splitting by time rather than at random. Example: train on earlier periods and test on later ones, mirroring how deployment actually works.|split
+Why is a random split wrong for time-ordered data?|It lets the future inform the past. Example: a later case in train shares an economic shock with an earlier case sitting in test, so the model looks better than it is.|split
+What is walk-forward validation?|Repeatedly training on one period and validating on the next. Example: expanding-window cross-validation for time series.|split
+Why is standard k-fold CV unsafe on time-ordered data?|The folds interleave time. Example: fold 3 trains on 2020 and validates on 2018.|split
+What is data snooping?|Consulting the test set repeatedly until something works. Example: evaluating 20 threshold variants on test and keeping the best one.|split
+What is the correct hyperparameter tuning discipline?|Tune on validation, report on test, once. Example: choosing tree depth by test score quietly turns test into a second training set.|split
+What is the multiple comparisons problem?|Testing many hypotheses makes false positives near certain. Example: screening 500 features at p below 0.05 yields roughly 25 spurious hits by chance alone.|stats
+What is WOE?|Weight of evidence: the log-odds of good versus bad within a bin, relative to the overall mix. Example: a bin with more failures than average carries a negative WOE.|screening
+What is IV?|Information value: aggregate predictive strength of a binned feature. Example: as a rough rule, below 0.02 is useless and above 0.5 is suspicious.|screening
+Why is a very high IV suspicious?|Genuine features rarely separate that cleanly, so it usually means leakage. Example: an IV above 1 almost always indicates a surviving post-outcome column.|screening
+What is monotonic binning?|Binning so the target rate moves consistently in one direction across bins. Example: failure rate rising steadily with debt ratio, which keeps the scorecard explainable.|screening
+What is multicollinearity?|Predictors that are strongly linearly related to one another. Example: two near-identical ratios make coefficients unstable and can flip their signs.|stats
+What is VIF?|Variance inflation factor: how much collinearity inflates a coefficient's variance. Example: VIF above 5 or 10 is the usual warning threshold.|stats
+Why does collinearity matter less for trees?|Trees choose one of the correlated features per split instead of solving jointly. Example: regression coefficients become unstable while tree accuracy barely moves.|stats
+What is a confounder?|A variable influencing both the predictor and the outcome, creating a spurious association. Example: risk tier drives both which product a customer picks and how often they fail.|bias
+What is Simpson's paradox?|A trend that reverses when groups are combined or separated. Example: group A beats group B inside every tier, yet loses overall because of how the tiers are mixed.|bias
+What is a composition effect?|A between-group difference caused by different group membership rather than the factor of interest. Example: a product looks riskier only because riskier customers choose it.|bias
+How do you separate composition from a real effect?|Compare within strata instead of in aggregate. Example: compute the gap inside each risk tier, then see how much of it survives.|bias
+What is selection bias?|The sample is not representative of the population you want to score. Example: you only observe approved applicants, so you can only estimate risk conditional on approval.|bias
+What is survivorship bias?|Analysing only the cases that lasted, ignoring those that disappeared. Example: rating fund performance using only funds still open today.|bias
+What is the base rate fallacy?|Ignoring prevalence when interpreting a positive result. Example: a 99 percent accurate test for a 1-in-10000 condition still returns mostly false positives.|stats
+Correlation versus causation?|Association establishes neither direction nor mechanism. Example: a score collapsing after failure is caused by the failure, not predictive of it.|stats
+Confounder versus mediator?|A confounder sits beside the causal path, a mediator sits on it. Example: controlling for a mediator can hide the very effect you set out to measure.|bias
+What is class imbalance?|One class is much rarer, which makes accuracy meaningless. Example: at 5 percent positives, predicting all-negative scores 95 percent accuracy.|imbalance
+Why is accuracy the wrong metric under imbalance?|It rewards predicting the majority class. Example: a model that never flags a failure can beat a genuinely useful one on accuracy.|imbalance
+What is precision?|Of the cases you flagged, the share that were right. Example: 100 flagged and 30 truly bad gives 30 percent precision.|metrics
+What is recall?|Of the truly bad cases, the share you caught. Example: 200 bad overall and 30 caught gives 15 percent recall.|metrics
+What is the precision-recall tradeoff?|Lowering the threshold raises recall and lowers precision. Example: flag everyone and recall hits 100 percent while precision collapses to the base rate.|metrics
+What is the F1 score?|The harmonic mean of precision and recall. Example: convenient as one number, but it hides which of the two you sacrificed.|metrics
+What is ROC AUC?|The probability that a random positive scores above a random negative. Example: 0.5 is coin-flip ordering, 1.0 is perfect ordering.|metrics
+PR curve versus ROC curve?|Under heavy imbalance ROC flatters the model because true negatives dominate. Example: prefer the precision-recall curve when positives are rare.|metrics
+What is the Gini coefficient in scoring?|A rescaling of AUC, equal to 2 times AUC minus 1. Example: an AUC of 0.70 is a Gini of 0.40.|metrics
+What is the KS statistic?|The maximum gap between the cumulative score distributions of goods and bads. Example: reported alongside Gini in standard scorecard validation.|metrics
+What is SMOTE?|Synthesising minority-class examples to balance training data. Example: it can lift recall but distorts predicted probabilities, so recalibrate afterwards.|imbalance
+What are class weights?|Penalising errors on the rare class more heavily instead of resampling. Example: usually simpler than SMOTE and easier to reason about.|imbalance
+Why does rebalancing break calibration?|The model learns an artificial base rate. Example: trained at 50 percent positives, it predicts far higher probabilities than reality warrants.|calibration
+What is calibration?|Whether predicted probabilities match observed frequencies. Example: among cases predicted at 10 percent, about 10 percent should actually fail.|calibration
+Discrimination versus calibration?|Discrimination is ordering, calibration is level. Example: a model can rank perfectly and still be uniformly twice too low.|calibration
+Why is AUC blind to calibration?|It depends only on rank order. Example: halve every predicted probability and the AUC does not change at all.|calibration
+What is a calibration curve?|Predicted probability bucketed and plotted against the realised rate. Example: a perfectly calibrated model lies on the 45-degree line.|calibration
+What is the Brier score?|Mean squared error of predicted probabilities. Example: lower is better, and it penalises poor calibration and poor discrimination together.|metrics
+What is log loss?|A proper scoring rule that punishes confident wrong predictions steeply. Example: predicting 0.99 for a case that fails costs far more than predicting 0.6.|metrics
+What is Platt scaling?|Fitting a logistic regression on model scores to recalibrate them. Example: commonly applied after SVMs or after rebalanced training.|calibration
+What is isotonic regression in calibration?|Non-parametric recalibration fitting a monotone step function. Example: more flexible than Platt scaling but needs more data and can overfit.|calibration
+Why does calibration matter for decisions?|Any expected-value calculation consumes the probability directly. Example: expected loss equals probability times exposure times loss rate, so a wrong probability misprices everything downstream.|calibration
+What is overfitting?|Learning noise specific to the training data. Example: training error keeps falling while validation error turns and rises.|training
+What is underfitting?|The model is too simple to capture real structure. Example: fitting a straight line to a clearly curved relationship.|training
+What is the bias-variance tradeoff?|Simple models err systematically, complex models err erratically. Example: deeper trees lower bias and raise variance.|training
+What is regularisation?|Penalising complexity to improve generalisation. Example: L2 shrinks coefficients smoothly, L1 drives some to exactly zero.|training
+L1 versus L2?|L1 selects features, L2 stabilises correlated ones. Example: given two collinear predictors, L1 keeps one and L2 splits the weight between them.|training
+Why is a baseline necessary?|A metric is uninterpretable without a floor to compare against. Example: 0.70 AUC is impressive only if the existing rule scores lower.|baseline
+What makes a good baseline?|The simplest thing that could work, or the incumbent system you intend to replace. Example: predicting the base rate, a single-feature rule, or the current manual score.|baseline
+What is the logit?|The log of the odds, and the natural scale of logistic regression. Example: a coefficient of about 0.7 corresponds to a doubling of odds per unit.|stats
+What is an odds ratio?|The multiplicative change in odds per unit of a predictor. Example: an odds ratio of 2 doubles the odds, which is not the same as doubling the probability.|stats
+Why do odds and probability diverge?|The relationship is nonlinear, especially near the extremes. Example: doubling odds from 0.9 to 1.8 moves probability only from 47 to 64 percent.|stats
+What is threshold selection?|Converting a probability into a decision using the business objective. Example: 0.5 is arbitrary and silently assumes balanced classes and symmetric costs.|policy
+What is cost-sensitive decision making?|Weighing false positives against false negatives in real units rather than counts. Example: rejecting a good customer costs lost margin, accepting a bad one costs principal.|policy
+What is expected-value framing?|Deciding by expected outcome rather than by predicted class. Example: approve when expected revenue exceeds probability of loss times exposure.|policy
+What is a confusion matrix?|The 2x2 table of predicted versus actual outcomes. Example: it is the source of precision, recall, and every rate derived from them.|metrics
+Type I versus Type II error?|False positive versus false negative. Example: flagging a good case versus missing a bad one.|stats
+What is PSI?|Population stability index: how far a scored population has drifted from the development sample. Example: above 0.25 conventionally signals a material shift.|drift
+What is concept drift?|The relationship between features and outcome changes over time. Example: a recession makes an identical profile riskier than it was before.|drift
+Feature drift versus concept drift?|The inputs shift versus the input-output relationship shifts. Example: applicants getting younger, versus age ceasing to predict risk at all.|drift
+What is backtesting?|Evaluating a model on historical periods it never saw during training. Example: score last year's cohort and compare predicted against realised rates.|drift
+What is vintage analysis?|Tracking cohorts by age since origination, one curve per cohort. Example: it separates the effect of contract age from calendar-year economic conditions.|drift

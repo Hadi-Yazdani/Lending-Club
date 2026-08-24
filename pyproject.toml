@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lending-club"
+version = "0.1.0"
+description = "Lending Club credit risk model: calibrated probability of default at origination"
+requires-python = ">=3.11"
+
+# Direct dependencies only. requirements.txt is a full freeze of the environment
+# (every transitive package, pinned); this is the short list of what the project
+# actually imports. Modelling libraries get added here when Week 2 starts.
+dependencies = [
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "matplotlib>=3.8",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+    "kagglehub>=0.3",
+]
+
+[project.optional-dependencies]
+dev = ["ipykernel>=6.29", "pytest>=8.0"]
+
+# src layout: `src` is the import root, not a package itself. This is what makes
+# `import paths` and `from pre_proccessing import pipeline` work from anywhere -
+# notebook, script, or pytest - after a one-time `pip install -e .`.
+[tool.setuptools]
+package-dir = { "" = "src" }
+py-modules = ["paths"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["pre_proccessing*"]

@@ -49,22 +49,90 @@ exist in the whole file and none survive the filters.
 
 ---
 
-## 3. Leakage Screening (the time-machine test)
+## 3. Column Triage & Leakage Screening
 
-For every column ask: **was this value knowable at the moment of the decision?**
-Not "is it about the borrower" — timing, not subject matter. `loan_amnt` and
-`purpose` are loan attributes and perfectly legal; `last_fico_range_low` is a
+Two passes, bundled because they share a precondition — neither needs the label,
+neither needs distributions — and a consequence: profiling 151 columns when 80 are
+already dead is wasted work. Only the second requires judgment, which is why the step
+is usually named after it. Both drop whole columns; neither drops a row.
+
+### 3a. Mechanical triage — no judgment required
+
+Free deletions, found with `nunique()` and a null count. Nothing here is a risk
+decision; it is bookkeeping that stops 151 columns from looking like 151 questions.
+
+Four families: **100% null in this population** (15 columns — `member_id`,
+`next_pymnt_d`, `revol_bal_joint`, every `sec_app_*`; that block was added in 2017),
+**zero variance** (11 — `policy_code`, `pymnt_plan`, `hardship_flag`,
+`disbursement_method`), **identifiers** (`id`, `url` — which contains the loan id),
+and **free text** (`emp_title`, `title`, `desc`).
+
+`nunique()` alone finds only the first two. It **drops NaN by default**, so a column
+that is 99.96% null with one surviving value reads as "constant" and a column at
+97.5% null reads as perfectly healthy. Null *rate* and *distinct count* are two
+different measurements and you need both side by side — 37 further columns sit in the
+≥97%-null band and no `nunique()` test will surface them.
+
+Measure on the **population, not the file**. `term` is constant only because Step 1
+filtered to 36 months, and `out_prncp` is 0.0 only because Step 2 kept resolved loans
+— both are artefacts of upstream decisions, not properties of the column.
+
+Free text and `zip_code` are *legitimately* knowable at origination. They leave for
+cardinality, PII, and fair-lending reasons — record which, because "dropped as
+leakage" is the wrong reason and someone will read it.
+
+### 3b. Leakage screening — the time-machine test
+
+For every surviving column ask: **was this value knowable at the moment of the
+decision?** Not "is it about the borrower" — timing, not subject matter. `loan_amnt`
+and `purpose` are loan attributes and perfectly legal; `last_fico_range_low` is a
 borrower attribute and lethal.
+
+Column names do not announce their timing, so sort by clock:
+
+| Clock | Meaning | Verdict |
+|---|---|---|
+| Application | stated by the borrower when applying | legal |
+| Bureau pull | the credit report LC pulled at underwriting | legal |
+| Servicing | written after the money moved | **banned** |
 
 Use a **whitelist, not a blacklist**. With 151 columns a blacklist will miss one,
 and the one it misses will be the one that wrecks the model. A whitelist fails
-closed. Do this *before* any correlation ranking, or leakage columns will sit at
-the top looking like a discovery.
+closed — including against schema drift, where a column added in a later export is
+silently ignored rather than silently admitted. Do this *before* any correlation
+ranking, or leakage columns will sit at the top looking like a discovery.
+
+One empirical check belongs here, run as a one-off audit and never as a selector,
+because it touches the label: **null rate by `loan_status`**. A column populated only
+for terminal loans is on the servicing clock, and its *presence* leaks even when its
+value looks innocuous — which is why dropping the column is not enough, and a
+`was_missing` flag derived from it re-imports what you just removed.
+
+**Example:** `settlement_amount` is **100.00%** null on Fully Paid and 88.61% on
+Charged Off. `recoveries > 0` covers 77.8% of Charged Off and **0.0%** of Fully Paid
+— a non-zero value identifies the bad class perfectly, because you only recover money
+on loans that defaulted.
 
 **Example:** at origination, Fully Paid and Charged Off borrowers differ by 10.5
 FICO points. At last credit pull they differ by **182**. `last_fico < 500` is 74.6%
 charged off — the column is a readout of the outcome, because defaulting is what
 destroyed the score.
+
+### The output is a spec, not a dataframe
+
+Not a list of the ~70 survivors — a verdict plus a reason for all 151 columns. The
+reasons are what anyone asks about six months later, and a keep-list cannot hold one.
+They are not interchangeable: **leakage**, **structurally empty**, **zero variance**,
+**identifier / PII**, and **policy** — `issue_d` is knowable at origination and banned
+anyway, because it is the split key and a model that learns "2015 defaults less" has
+learned a calendar.
+
+Assert `set(spec) == set(df.columns)`. Schema drifts, and a loud failure beats a
+quietly shorter feature matrix.
+
+The spec is amended, not frozen: redundant pairs surface in Step 4, vintage-correlated
+nullity is handled in Step 8, weak predictors go in Step 7. Stamp each entry with the
+step that justified it.
 
 ---
 
@@ -242,6 +310,8 @@ rate falls from 14.03% to X%."
 | Random split | Future informs past; deployment never works that way |
 | Run WOE/IV on the full population | Test outcomes shape which features you keep |
 | Rank correlations before leakage screening | `recoveries` tops the list and looks like a discovery |
+| Treat Step 3 as leakage only | `id`, `url` and `policy_code` all pass the time-machine test |
+| Flag `was_missing` on a dropped leaky column | Re-imports the leakage you just removed |
 
 ## The one-line test
 

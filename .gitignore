@@ -1,3 +1,4 @@
 .env
 /venv
 /src/data/datasets
+__pycache__/

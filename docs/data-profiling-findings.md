@@ -100,18 +100,17 @@ window.
 | Stage | Cut | Remaining |
 |---|---:|---:|
 | Raw | — | 151 |
-| 100% null in this window | −18 | 133 |
-| ≥97% null in this window | −34 | 99 |
+| 100% null in this window | −15 | 136 |
+| ≥97% null in this window | −37 | 99 |
 | Post-origination (banned by §4) | ~−20 | ~79 |
 | IDs / free text / constants | ~−10 | ~69 |
 
 The business-analysis job is ~40 columns, not 151. The rest is mechanical triage.
 
-### 3.1 100% null in this population (18) — free deletion
+### 3.1 100% null in this population (15) — free deletion
 
 ```
-member_id, next_pymnt_d, dti_joint, annual_inc_joint,
-verification_status_joint, revol_bal_joint,
+member_id, next_pymnt_d, revol_bal_joint,
 sec_app_num_rev_accts, sec_app_open_act_il, sec_app_inq_last_6mths,
 sec_app_earliest_cr_line, sec_app_fico_range_high, sec_app_fico_range_low,
 sec_app_revol_util, sec_app_open_acc, sec_app_mort_acc,
@@ -119,8 +118,14 @@ sec_app_mths_since_last_major_derog, sec_app_collections_12_mths_ex_med,
 sec_app_chargeoff_within_12_mths
 ```
 
-LC launched joint applications in 2017 — two years after this window closes.
 `member_id` is redacted throughout the public file. Zero information content.
+
+Note the joint fields split in two. The `sec_app_*` **column block** was added in 2017,
+so it is genuinely 100% null here. But joint *applications* themselves appear from
+2015-10: **239 loans**, carrying `dti_joint` / `annual_inc_joint` /
+`verification_status_joint` at 99.96% null. Those three belong in §3.2, not here — and
+all 239 fall in **2015-10..2015-12, entirely inside the test window**, which is a
+textbook vintage-correlated feature (§5) rather than a free deletion.
 
 ### 3.2 ≥97% null in this population (34) — two families
 
@@ -130,6 +135,12 @@ LC launched joint applications in 2017 — two years after this window closes.
 open_acc_6m, open_act_il, open_il_12m, open_il_24m, mths_since_rcnt_il,
 total_bal_il, il_util, open_rv_12m, open_rv_24m, max_bal_bc, all_util,
 inq_fi, total_cu_tl, inq_last_12m
+```
+
+**Joint-application fields** (99.96% null — 239 loans, all 2015Q4):
+
+```
+dti_joint, annual_inc_joint, verification_status_joint
 ```
 
 **Post-origination hardship / settlement** (98.4–99.8% null, banned regardless):

@@ -3,3 +3,4 @@
 /src/data/datasets
 /data/interim
 __pycache__/
+/csv_prices

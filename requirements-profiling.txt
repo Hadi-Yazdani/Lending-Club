@@ -1,0 +1,9 @@
+# Standalone stack for the EDA profiling environment (Python 3.13 only).
+#
+# ydata-profiling caps Requires-Python at <3.14 and pins pandas<3.0, numba<0.63,
+# matplotlib<=3.10, numpy<2.4 and scipy<1.17, so it cannot be installed into the
+# main .venv. Resolve it on its own here; see the note in pyproject.toml.
+ydata-profiling>=4.18
+setuptools<81  # ydata-profiling imports pkg_resources, removed in setuptools>=81
+pyarrow>=25.0
+ipykernel>=7.3

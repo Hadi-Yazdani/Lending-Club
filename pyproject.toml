@@ -6,29 +6,40 @@ build-backend = "setuptools.build_meta"
 name = "lending-club"
 version = "0.1.0"
 description = "Lending Club credit risk model: calibrated probability of default at origination"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 
-# Direct dependencies only. requirements.txt is a full freeze of the environment
-# (every transitive package, pinned); this is the short list of what the project
-# actually imports. Modelling libraries get added here when Week 2 starts.
+# Direct dependencies only, floored at the current release of each. uv.lock is
+# the reproducible pin for the whole transitive tree - there is no requirements
+# freeze any more, `uv sync` reads the lock.
 dependencies = [
-    "pandas>=2.2",
-    "pyarrow>=15.0",
-    "numpy>=1.26",
-    "matplotlib>=3.8",
-    "pyyaml>=6.0",
-    "python-dotenv>=1.0",
-    "kagglehub>=0.3",
-    "ydata-profiling>=4.18",
-    "setuptools<81",  # ydata-profiling imports pkg_resources, removed in setuptools>=81
+    "pandas>=3.0",
+    "pyarrow>=25.0",
+    "numpy>=2.5",
+    "matplotlib>=3.11",
+    "pyyaml>=6.0.3",
+    "python-dotenv>=1.2",
+    "kagglehub>=1.0",
 ]
 
 [project.optional-dependencies]
-dev = ["ipykernel>=6.29", "pytest>=8.0"]
+dev = ["ipykernel>=7.3", "pytest>=9.1"]
+
+# NOTE: profiling is deliberately NOT an extra here. ydata-profiling declares
+# Requires-Python <3.14, pins numba<0.63 (wheels stop at cp313) and pandas<3.0,
+# so it cannot share a resolution with this project's pandas>=3.0 - uv rejects
+# the lock outright. It lives in requirements-profiling.txt with its own
+# interpreter instead:
+#
+#     uv venv --python 3.13 .venv-profiling
+#     uv pip install --python .venv-profiling -r requirements-profiling.txt
+#     uv pip install --python .venv-profiling --no-deps -e .
+#
+# That second env is only for generating EDA reports; the main .venv on 3.14 is
+# what the pipeline and tests run on.
 
 # src layout: `src` is the import root, not a package itself. This is what makes
 # `import paths` and `from pre_proccessing import pipeline` work from anywhere -
-# notebook, script, or pytest - after a one-time `pip install -e .`.
+# notebook, script, or pytest - after a one-time editable install.
 [tool.setuptools]
 package-dir = { "" = "src" }
 py-modules = ["paths"]

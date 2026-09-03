@@ -1,9 +1,0 @@
-pyproject.toml
-src/paths.py
-src/lending_club.egg-info/PKG-INFO
-src/lending_club.egg-info/SOURCES.txt
-src/lending_club.egg-info/dependency_links.txt
-src/lending_club.egg-info/requires.txt
-src/lending_club.egg-info/top_level.txt
-src/pre_proccessing/__init__.py
-src/pre_proccessing/pipeline.py

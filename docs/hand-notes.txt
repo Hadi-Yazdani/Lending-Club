@@ -1,0 +1,7 @@
+1_ the emp_lenght , needs check for missing rows : if randomly , remove them
+if its missing for a reason, its info
+
+2_extereme income values, those that are not verified, should be crossed checked with other columns
+if strange , dropped from training. for new data, this is a matter for the pipeline validation
+
+3_univariate vs label , then bundle vs label

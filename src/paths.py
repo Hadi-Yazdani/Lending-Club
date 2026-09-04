@@ -29,3 +29,7 @@ DOCS = ROOT / "docs"
 # the raw exports sit one level deeper, in directories named like files:
 #   DATA / "accepted_2007_to_2018q4.csv" / "accepted_2007_to_2018Q4.csv"
 DATA = SRC / "data" / "datasets" / "wordsforthewise" / "lending-club" / "versions" / "3"
+
+# Where preprocessing notebooks write intermediate outputs (feature/label
+# splits, profiling reports, etc.) - see src/pre_proccessing/2_triage_and_leakage.ipynb
+INTERIM = ROOT / "data" / "interim"
